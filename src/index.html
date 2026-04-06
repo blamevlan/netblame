@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>netblame</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div class="app">
+
+    <header>
+      <span class="logo">netblame</span>
+      <span class="tagline">infrastructure debug tool</span>
+    </header>
+
+    <div class="tabs">
+      <button class="tab active" data-tab="host">Host Check</button>
+      <button class="tab" data-tab="netscan">Network Scan</button>
+      <button class="tab" data-tab="traceroute">Traceroute</button>
+      <button class="tab" data-tab="dns">DNS Records</button>
+      <button class="tab" data-tab="http">HTTP/S</button>
+      <button class="tab" data-tab="ping">Ping</button>
+      <button class="tab" data-tab="whois">Whois</button>
+    </div>
+
+    <!-- ── HOST CHECK ──────────────────────────────────────────────────────── -->
+    <div id="tab-host" class="tab-content">
+      <div class="search-bar">
+        <input id="host-input" type="text"
+          placeholder="IP address or domain  (e.g. 1.1.1.1 or example.com)"
+          autocomplete="off" spellcheck="false" />
+        <button id="check-btn">Check</button>
+      </div>
+      <div id="results" class="results hidden">
+        <div class="summary-bar">
+          <div class="summary-status pending" id="updown-status">
+            <span class="updown-dot"></span><span id="updown-label">checking…</span>
+          </div>
+          <div class="summary-item">
+            <span class="summary-key">TCP latency</span>
+            <span class="summary-val" id="latency-val">…</span>
+          </div>
+          <div class="summary-item">
+            <span class="summary-key">ICMP ping</span>
+            <span class="summary-val" id="ping-val">…</span>
+          </div>
+          <div class="summary-item">
+            <span class="summary-key">MAC</span>
+            <span class="summary-val" id="mac-val">…</span>
+          </div>
+        </div>
+        <div class="root-warning hidden" id="root-warning">
+          <span class="warn-icon">⚠</span>
+          <span>ICMP ping requires elevated privileges on this system.</span>
+          <span class="warn-hint">Run with <code>sudo cargo tauri dev</code> to enable.</span>
+        </div>
+        <div class="row-two">
+          <div class="card">
+            <div class="card-header">
+              <span class="card-title">DNS</span>
+              <span class="badge" id="dns-badge">—</span>
+            </div>
+            <div class="card-body" id="dns-body"><div class="spinner"></div></div>
+          </div>
+          <div class="card">
+            <div class="card-header">
+              <span class="card-title">SSL Certificate</span>
+              <span class="badge" id="ssl-badge">—</span>
+            </div>
+            <div class="card-body" id="ssl-body"><div class="spinner"></div></div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-header"><span class="card-title">Key Ports</span></div>
+          <div class="key-ports">
+            <div class="key-port pending" id="kp-22">
+              <span class="kp-num">22</span><span class="kp-svc">SSH</span><span class="kp-status">…</span>
+            </div>
+            <div class="key-port pending" id="kp-80">
+              <span class="kp-num">80</span><span class="kp-svc">HTTP</span><span class="kp-status">…</span>
+            </div>
+            <div class="key-port pending" id="kp-443">
+              <span class="kp-num">443</span><span class="kp-svc">HTTPS</span><span class="kp-status">…</span>
+            </div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-header">
+            <span class="card-title">Port Scan</span>
+            <span class="card-sub" id="ports-summary">scanning 20 common ports…</span>
+          </div>
+          <div class="port-grid" id="port-grid"><div class="spinner"></div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── NETWORK SCAN ────────────────────────────────────────────────────── -->
+    <div id="tab-netscan" class="tab-content hidden">
+      <div class="netscan-toolbar">
+        <div class="subnet-selector" id="subnet-selector">
+          <span class="subnet-loading">Detecting interfaces…</span>
+        </div>
+        <button id="scan-btn" disabled>Scan</button>
+      </div>
+      <div class="progress-wrap hidden" id="progress-wrap">
+        <div class="progress-bar" id="progress-bar" style="width:0%"></div>
+        <span class="progress-label" id="progress-label">0 / 0</span>
+      </div>
+      <div class="card" id="netscan-card" style="display:none">
+        <div class="card-header">
+          <span class="card-title">Discovered Hosts</span>
+          <span class="card-sub" id="netscan-summary">—</span>
+        </div>
+        <div class="netscan-table-wrap">
+          <table class="netscan-table">
+            <thead><tr><th>IP</th><th>Hostname</th><th>MAC</th></tr></thead>
+            <tbody id="netscan-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── TRACEROUTE ──────────────────────────────────────────────────────── -->
+    <div id="tab-traceroute" class="tab-content hidden">
+      <div class="search-bar">
+        <input id="tr-input" type="text"
+          placeholder="Host or IP to trace"
+          autocomplete="off" spellcheck="false" />
+        <button id="tr-btn">Trace</button>
+      </div>
+      <div class="card hidden" id="tr-card">
+        <div class="card-header">
+          <span class="card-title">Route</span>
+          <span class="card-sub" id="tr-summary">…</span>
+        </div>
+        <div class="tr-output" id="tr-output"></div>
+      </div>
+    </div>
+
+    <!-- ── DNS RECORDS ─────────────────────────────────────────────────────── -->
+    <div id="tab-dns" class="tab-content hidden">
+      <div class="search-bar">
+        <input id="dns-rec-input" type="text"
+          placeholder="Domain  (e.g. example.com)"
+          autocomplete="off" spellcheck="false" />
+        <button id="dns-rec-btn">Lookup</button>
+      </div>
+      <div class="hidden" id="dns-rec-results">
+        <div class="row-two">
+          <div class="card">
+            <div class="card-header"><span class="card-title">A Records</span></div>
+            <div class="card-body rec-body" id="rec-a"></div>
+          </div>
+          <div class="card">
+            <div class="card-header"><span class="card-title">CNAME</span></div>
+            <div class="card-body rec-body" id="rec-cname"></div>
+          </div>
+        </div>
+        <div class="row-two">
+          <div class="card">
+            <div class="card-header"><span class="card-title">MX Records</span></div>
+            <div class="card-body rec-body" id="rec-mx"></div>
+          </div>
+          <div class="card">
+            <div class="card-header"><span class="card-title">NS Records</span></div>
+            <div class="card-body rec-body" id="rec-ns"></div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-header"><span class="card-title">TXT Records</span></div>
+          <div class="card-body rec-body" id="rec-txt"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── HTTP CHECK ──────────────────────────────────────────────────────── -->
+    <div id="tab-http" class="tab-content hidden">
+      <div class="search-bar">
+        <input id="http-input" type="text"
+          placeholder="URL or domain  (e.g. example.com or https://example.com)"
+          autocomplete="off" spellcheck="false" />
+        <button id="http-btn">Check</button>
+      </div>
+      <div class="hidden" id="http-results">
+        <div class="summary-bar" id="http-summary-bar">
+          <div class="summary-status pending" id="http-status-box">
+            <span id="http-status-label">…</span>
+          </div>
+          <div class="summary-item">
+            <span class="summary-key">Response time</span>
+            <span class="summary-val" id="http-time">…</span>
+          </div>
+          <div class="summary-item" style="flex:2">
+            <span class="summary-key">Final URL</span>
+            <span class="summary-val" id="http-final-url" style="font-size:11px;overflow:hidden;text-overflow:ellipsis">…</span>
+          </div>
+        </div>
+
+        <div class="card hidden" id="http-redirects-card">
+          <div class="card-header"><span class="card-title">Redirect Chain</span></div>
+          <div class="card-body" id="http-redirects"></div>
+        </div>
+
+        <div class="card">
+          <div class="card-header">
+            <span class="card-title">Response Headers</span>
+            <span class="card-sub" id="http-headers-count">—</span>
+          </div>
+          <div class="card-body" id="http-headers"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── PING ───────────────────────────────────────────────────────────── -->
+    <div id="tab-ping" class="tab-content hidden">
+      <div class="search-bar">
+        <input id="ping-host-input" type="text"
+          placeholder="Host or IP to ping"
+          autocomplete="off" spellcheck="false" />
+        <select id="ping-count-select" class="ping-select">
+          <option value="4">4 pings</option>
+          <option value="10">10 pings</option>
+          <option value="20">20 pings</option>
+          <option value="0">continuous</option>
+        </select>
+        <button id="ping-start-btn">Ping</button>
+        <button id="ping-stop-btn" disabled class="btn-danger">Stop</button>
+      </div>
+      <div class="root-warning hidden" id="ping-root-warning">
+        <span class="warn-icon">⚠</span>
+        <span>ICMP ping requires elevated privileges on this system.</span>
+        <span class="warn-hint">Run with <code>sudo cargo tauri dev</code> to enable.</span>
+      </div>
+      <div class="card hidden" id="ping-card">
+        <div class="card-header">
+          <span class="card-title">Ping</span>
+          <span class="card-sub" id="ping-stats">—</span>
+        </div>
+        <div class="ping-output" id="ping-output"></div>
+      </div>
+    </div>
+
+    <!-- ── WHOIS ───────────────────────────────────────────────────────────── -->
+    <div id="tab-whois" class="tab-content hidden">
+      <div class="search-bar">
+        <input id="whois-input" type="text"
+          placeholder="Domain or IP  (e.g. example.com or 1.1.1.1)"
+          autocomplete="off" spellcheck="false" />
+        <button id="whois-btn">Lookup</button>
+      </div>
+      <div class="card hidden" id="whois-card">
+        <div class="card-header">
+          <span class="card-title">Whois</span>
+          <span class="card-sub" id="whois-host">—</span>
+        </div>
+        <pre class="whois-output" id="whois-output"></pre>
+      </div>
+    </div>
+
+  </div><!-- /app -->
+  <script src="main.js"></script>
+</body>
+</html>
