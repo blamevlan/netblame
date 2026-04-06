@@ -32,28 +32,24 @@ After installation, netblame appears in your application menu.
 A standalone `netblame-cli` command is included for quick checks from the terminal:
 
 ```
-$ netblame-cli github.com
+netblame-cli github.com
 
-DNS
-───
-✔  140.82.121.3
+DNS       ✔  140.82.121.3
+PORTS     ✔  22    SSH
+          ✔  80    HTTP
+          ✔  443   HTTPS
+             17 ports closed / filtered (use -a to show all)
+SSL       ✔  valid  58 days remaining
+             CN  github.com  ·  CA  Sectigo Limited
+PING      ✔  11.0 ms  0% loss
+```
 
-PORTS
-─────
-✔  22    SSH
-✔  80    HTTP
-✔  443   HTTPS
-   17 ports closed / filtered
+**Flags:**
 
-SSL
-───
-✔  valid  58 days remaining
-   CN  github.com
-   CA  Sectigo Limited
-
-PING
-────
-✔  11.0 ms  0% loss
+```bash
+netblame-cli -a github.com           # show all ports (open + closed)
+netblame-cli -p 22,80,443 github.com # check specific ports only
+netblame-cli -p 8000-8010 github.com # check a port range
 ```
 
 Build and install the CLI:

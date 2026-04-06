@@ -10,12 +10,16 @@
   <div class="app">
 
     <header>
-      <span class="logo">netblame</span>
-      <span class="tagline">infrastructure debug tool</span>
+      <div class="header-left">
+        <span class="logo">netblame</span>
+        <span class="tagline">infrastructure debug tool</span>
+      </div>
+      <button class="theme-toggle" id="theme-toggle" title="Toggle light/dark theme">☀</button>
     </header>
 
     <div class="tabs">
       <button class="tab active" data-tab="host">Host Check</button>
+      <button class="tab" data-tab="ports">Ports</button>
       <button class="tab" data-tab="netscan">Network Scan</button>
       <button class="tab" data-tab="traceroute">Traceroute</button>
       <button class="tab" data-tab="dns">DNS Records</button>
@@ -92,6 +96,26 @@
           </div>
           <div class="port-grid" id="port-grid"><div class="spinner"></div></div>
         </div>
+      </div>
+    </div>
+
+    <!-- ── PORTS ─────────────────────────────────────────────────────────── -->
+    <div id="tab-ports" class="tab-content hidden">
+      <div class="search-bar">
+        <input id="ports-host-input" type="text"
+          placeholder="Host or IP  (e.g. example.com)"
+          autocomplete="off" spellcheck="false" />
+        <input class="port-list-input" id="ports-list-input" type="text"
+          placeholder="Ports  (e.g. 22,80,443 or 8000-8010)"
+          autocomplete="off" spellcheck="false" />
+        <button id="ports-check-btn">Check</button>
+      </div>
+      <div class="card hidden" id="ports-result-card">
+        <div class="card-header">
+          <span class="card-title">Results</span>
+          <span class="card-sub" id="ports-result-summary">—</span>
+        </div>
+        <div class="port-result-grid" id="ports-result-grid"></div>
       </div>
     </div>
 

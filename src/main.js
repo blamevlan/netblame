@@ -644,3 +644,97 @@ pingStopBtn.addEventListener('click', () => {
 
 pingStartBtn.addEventListener('click', startPing);
 pingHostInput.addEventListener('keydown', e => { if (e.key === 'Enter') startPing(); });
+
+// ══════════════════════════════════════════════════════════════════════════════
+// THEME TOGGLE
+// ══════════════════════════════════════════════════════════════════════════════
+
+const themeToggle = document.getElementById('theme-toggle');
+
+function applyTheme(theme) {
+  document.documentElement.setAttribute('data-theme', theme);
+  themeToggle.textContent = theme === 'light' ? '☾' : '☀';
+  localStorage.setItem('netblame-theme', theme);
+}
+
+// On load: use saved preference, or fall back to system preference
+const savedTheme = localStorage.getItem('netblame-theme');
+if (savedTheme) {
+  applyTheme(savedTheme);
+} else if (window.matchMedia('(prefers-color-scheme: light)').matches) {
+  applyTheme('light');
+}
+
+themeToggle.addEventListener('click', () => {
+  const current = document.documentElement.getAttribute('data-theme');
+  applyTheme(current === 'light' ? 'dark' : 'light');
+});
+
+// ══════════════════════════════════════════════════════════════════════════════
+// PORTS TAB
+// ══════════════════════════════════════════════════════════════════════════════
+
+const portsHostInput    = document.getElementById('ports-host-input');
+const portsListInput    = document.getElementById('ports-list-input');
+const portsCheckBtn     = document.getElementById('ports-check-btn');
+const portsResultCard   = document.getElementById('ports-result-card');
+const portsResultGrid   = document.getElementById('ports-result-grid');
+const portsResultSummary = document.getElementById('ports-result-summary');
+
+function parsePorts(str) {
+  const ports = new Set();
+  for (const part of str.split(',')) {
+    const trimmed = part.trim();
+    const range = trimmed.match(/^(\d+)-(\d+)$/);
+    if (range) {
+      const from = parseInt(range[1]);
+      const to   = parseInt(range[2]);
+      for (let p = Math.min(from, to); p <= Math.max(from, to) && p <= 65535; p++) {
+        ports.add(p);
+      }
+    } else {
+      const n = parseInt(trimmed);
+      if (!isNaN(n) && n >= 1 && n <= 65535) ports.add(n);
+    }
+  }
+  return [...ports].sort((a, b) => a - b);
+}
+
+async function runPortCheck() {
+  const host  = portsHostInput.value.trim();
+  const input = portsListInput.value.trim();
+  if (!host) { portsHostInput.focus(); return; }
+  if (!input) { portsListInput.focus(); return; }
+
+  const ports = parsePorts(input);
+  if (ports.length === 0) { portsListInput.focus(); return; }
+  if (ports.length > 200) {
+    portsResultSummary.textContent = 'Max 200 ports at once';
+    return;
+  }
+
+  portsCheckBtn.disabled = true;
+  portsResultCard.classList.remove('hidden');
+  portsResultGrid.innerHTML = '<div class="spinner"></div>';
+  portsResultSummary.textContent = `checking ${ports.length} ports…`;
+
+  const results = await invoke()('check_custom_ports', { host, ports })
+    .catch(() => []);
+
+  const open   = results.filter(r => r.open).length;
+  const closed = results.length - open;
+  portsResultSummary.textContent = `${open} open · ${closed} closed`;
+
+  portsResultGrid.innerHTML = results.map(r => `
+    <div class="port-result-pill ${r.open ? 'open' : 'closed'}">
+      <span class="dot"></span>
+      <span>${r.port}</span>
+      <span style="font-weight:400;opacity:0.75">${r.open ? 'open' : 'closed'}</span>
+    </div>`).join('');
+
+  portsCheckBtn.disabled = false;
+}
+
+portsCheckBtn.addEventListener('click', runPortCheck);
+portsHostInput.addEventListener('keydown', e => { if (e.key === 'Enter') portsListInput.focus(); });
+portsListInput.addEventListener('keydown', e => { if (e.key === 'Enter') runPortCheck(); });

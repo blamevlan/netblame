@@ -127,6 +127,44 @@ async fn check_ports(host: String) -> Vec<PortResult> {
 }
 
 #[tauri::command]
+async fn check_custom_ports(host: String, ports: Vec<u16>) -> Vec<PortResult> {
+    let ip = match tokio::net::lookup_host(format!("{}:80", &host)).await {
+        Ok(mut addrs) => addrs
+            .find(|a| a.is_ipv4())
+            .map(|a| a.ip().to_string())
+            .unwrap_or_else(|| host.clone()),
+        Err(_) => host.clone(),
+    };
+
+    let handles: Vec<_> = ports
+        .into_iter()
+        .map(|port| {
+            let ip = ip.clone();
+            tokio::spawn(async move {
+                let addr = format!("{}:{}", ip, port);
+                let open = tokio::time::timeout(
+                    Duration::from_secs(2),
+                    tokio::net::TcpStream::connect(&addr),
+                )
+                .await
+                .map(|r| r.is_ok())
+                .unwrap_or(false);
+                PortResult { port, service: String::new(), open }
+            })
+        })
+        .collect();
+
+    let mut results = Vec::new();
+    for handle in handles {
+        if let Ok(r) = handle.await {
+            results.push(r);
+        }
+    }
+    results.sort_by_key(|r| r.port);
+    results
+}
+
+#[tauri::command]
 async fn check_ssl(host: String) -> SslResult {
     // SSL requires SNI — doesn't work with bare IPs.
     if host.parse::<std::net::IpAddr>().is_ok() {
@@ -1000,6 +1038,7 @@ fn main() {
             check_http,
             check_whois,
             run_traceroute,
+            check_custom_ports,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

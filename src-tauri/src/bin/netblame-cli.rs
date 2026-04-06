@@ -89,6 +89,33 @@ async fn check_ports(host: &str) -> Vec<(u16, &'static str, bool)> {
     results
 }
 
+async fn check_ports_list(host: &str, ports: &[u16]) -> Vec<(u16, &'static str, bool)> {
+    let mut handles = vec![];
+    let host = host.to_string();
+    for &port in ports {
+        let h = host.clone();
+        handles.push(tokio::spawn(async move {
+            let open = tokio::task::spawn_blocking(move || {
+                use std::net::ToSocketAddrs;
+                let addr_str = format!("{}:{}", h, port);
+                match addr_str.to_socket_addrs() {
+                    Ok(mut addrs) => addrs.next()
+                        .map(|a| TcpStream::connect_timeout(&a, Duration::from_secs(2)).is_ok())
+                        .unwrap_or(false),
+                    Err(_) => false,
+                }
+            }).await.unwrap_or(false);
+            (port, "", open)
+        }));
+    }
+    let mut results = vec![];
+    for h in handles {
+        if let Ok(r) = h.await { results.push(r); }
+    }
+    results.sort_by_key(|r| r.0);
+    results
+}
+
 // ── SSL ───────────────────────────────────────────────────────────────────────
 
 struct SslInfo {
@@ -174,17 +201,55 @@ fn check_ping(host: &str) -> PingInfo {
     }
 }
 
+// ── Parse port list ("22,80,443" or "8000-8010") ─────────────────────────────
+
+fn parse_ports(s: &str) -> Vec<u16> {
+    let mut ports = vec![];
+    for part in s.split(',') {
+        let p = part.trim();
+        if let Some((a, b)) = p.split_once('-') {
+            if let (Ok(from), Ok(to)) = (a.trim().parse::<u16>(), b.trim().parse::<u16>()) {
+                for port in from..=to { ports.push(port); }
+            }
+        } else if let Ok(port) = p.parse::<u16>() {
+            ports.push(port);
+        }
+    }
+    ports.sort();
+    ports.dedup();
+    ports
+}
+
 // ── Main ──────────────────────────────────────────────────────────────────────
 
 #[tokio::main]
 async fn main() {
     let args: Vec<String> = std::env::args().collect();
-    if args.len() < 2 {
-        eprintln!("Usage: netblame-cli <host>");
-        std::process::exit(1);
+
+    // Simple arg parsing: netblame-cli [-a] [-p ports] <host>
+    let mut show_all   = false;
+    let mut custom_ports: Option<Vec<u16>> = None;
+    let mut host_arg: Option<String> = None;
+    let mut i = 1;
+    while i < args.len() {
+        match args[i].as_str() {
+            "-a" => { show_all = true; }
+            "-p" => {
+                i += 1;
+                if i < args.len() { custom_ports = Some(parse_ports(&args[i])); }
+            }
+            _ => { host_arg = Some(args[i].clone()); }
+        }
+        i += 1;
     }
 
-    let host = args[1].trim_end_matches('.').to_string();
+    let host = match host_arg {
+        Some(h) => h.trim_end_matches('.').to_string(),
+        None => {
+            eprintln!("Usage: netblame-cli [-a] [-p 22,80,443] <host>");
+            std::process::exit(1);
+        }
+    };
 
     println!("\n{BOLD}netblame{RESET}  {DIM}{host}{RESET}");
 
@@ -204,19 +269,39 @@ async fn main() {
     }
 
     // ── Ports ──
-    header("PORTS");
-    let ports = check_ports(&host).await;
-    let open_count = ports.iter().filter(|p| p.2).count();
+    let port_list = custom_ports.as_deref().unwrap_or(&[]);
+    let using_custom = custom_ports.is_some();
+
+    if using_custom {
+        header(&format!("PORTS  {DIM}custom{RESET}"));
+    } else {
+        header("PORTS");
+    }
+
+    let ports = if using_custom {
+        check_ports_list(&host, port_list).await
+    } else {
+        check_ports(&host).await
+    };
+
+    let open_count  = ports.iter().filter(|p| p.2).count();
+    let closed_count = ports.len() - open_count;
+
     for (port, svc, open) in &ports {
         if *open {
-            println!("{}  {DIM}{:5} {}{RESET}", ok(&format!("{port:<5} {svc}")), "", "");
+            let label = if svc.is_empty() { format!("{port:<5}") } else { format!("{port:<5} {svc}") };
+            println!("{}", ok(&label));
+        } else if show_all || using_custom {
+            let label = if svc.is_empty() { format!("{port:<5}") } else { format!("{port:<5} {svc}") };
+            println!("{}", fail(&label));
         }
     }
     if open_count == 0 {
         println!("{}", warn("no open ports found"));
     }
-    let closed = ports.len() - open_count;
-    println!("{DIM}  {closed} ports closed / filtered{RESET}");
+    if !show_all && !using_custom {
+        println!("{DIM}  {closed_count} ports closed / filtered  (use -a to show all){RESET}");
+    }
 
     // ── SSL ──
     header("SSL");
