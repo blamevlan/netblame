@@ -27,6 +27,42 @@ After installation, netblame appears in your application menu.
 
 > Tested on Fedora. A `.deb` package is also produced by the build but has not been tested on Debian/Ubuntu.
 
+## CLI
+
+A standalone `netblame-cli` command is included for quick checks from the terminal:
+
+```
+$ netblame-cli github.com
+
+DNS
+───
+✔  140.82.121.3
+
+PORTS
+─────
+✔  22    SSH
+✔  80    HTTP
+✔  443   HTTPS
+   17 ports closed / filtered
+
+SSL
+───
+✔  valid  58 days remaining
+   CN  github.com
+   CA  Sectigo Limited
+
+PING
+────
+✔  11.0 ms  0% loss
+```
+
+Build and install the CLI:
+
+```bash
+cargo build --bin netblame-cli --release
+sudo cp src-tauri/target/release/netblame-cli /usr/local/bin/
+```
+
 ## Build from source
 
 Requirements: [Rust](https://rustup.rs), [Tauri CLI v2](https://tauri.app/start/create-project/)
