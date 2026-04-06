@@ -30,6 +30,14 @@ async fn check_dns(host: &str) -> Vec<String> {
         .unwrap_or_else(|_| (ResolverConfig::default(), ResolverOpts::default()));
     let resolver = TokioAsyncResolver::tokio(cfg, opts);
 
+    // If it's an IP address, do a reverse lookup (PTR)
+    if let Ok(ip) = host.parse::<std::net::Ipv4Addr>() {
+        return match resolver.reverse_lookup(std::net::IpAddr::V4(ip)).await {
+            Ok(r) => r.iter().map(|n| n.to_string().trim_end_matches('.').to_string()).collect(),
+            Err(_) => vec![],
+        };
+    }
+
     match resolver.ipv4_lookup(host).await {
         Ok(r) => r.iter().map(|ip| ip.to_string()).collect(),
         Err(_) => vec![],
