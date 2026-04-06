@@ -1,5 +1,5 @@
 use std::net::{SocketAddr, TcpStream};
-use std::time::{Duration, Instant};
+use std::time::Duration;
 
 // ── ANSI colours ─────────────────────────────────────────────────────────────
 
@@ -93,7 +93,6 @@ struct SslInfo {
 
 fn check_ssl(host: &str) -> SslInfo {
     use openssl::ssl::{SslConnector, SslMethod, SslVerifyMode};
-    use openssl::x509::X509;
     use std::net::TcpStream as StdTcp;
 
     let addr = format!("{}:443", host);
