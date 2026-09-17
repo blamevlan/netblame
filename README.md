@@ -1,37 +1,27 @@
 # netblame
 
-A desktop app for debugging network infrastructure — built with Tauri v2 and Rust.
+netblame is a small Linux desktop tool for everyday network troubleshooting. I started it because I wanted the checks I use most often in one place instead of jumping between several commands and browser tools.
 
-![Linux](https://img.shields.io/badge/Linux-FCC624?style=flat&logo=linux&logoColor=black)
-![Rust](https://img.shields.io/badge/Rust-000000?style=flat&logo=rust&logoColor=white)
-![Tauri](https://img.shields.io/badge/Tauri-24C8D8?style=flat&logo=tauri&logoColor=white)
+Current version: **0.1.0**
 
-## Features
+The project is still early. Fedora is the main tested platform at the moment. The build also produces a Debian package, but I have not tested that package on Debian or Ubuntu yet.
 
-- **Host Check** DNS resolution, port scan (top 20), SSL certificate validation, ping, latency, MAC address lookup
-- **DNS Records** A, MX, NS, TXT, CNAME records via system resolver
-- **HTTP/S** Full redirect chain, response headers, response time
-- **Ping** Live streaming output with packet loss stats
-- **Traceroute** Hop-by-hop streaming output
-- **Whois** Raw whois data for any domain or IP
-- **Network Scan** Discovers live hosts on your local subnet via ARP + TCP probing
+## What it does
 
-## Installation
-
-**Fedora / RHEL:**
-```bash
-sudo dnf install netblame-*.x86_64.rpm
-```
-
-After installation, netblame appears in your application menu.
-
-> Tested on Fedora. A `.deb` package is also produced by the build but has not been tested on Debian/Ubuntu.
+- hostname resolution and DNS lookups
+- common or custom TCP port checks
+- TLS certificate checks
+- HTTP and HTTPS redirect and header inspection
+- ping and traceroute with live output
+- whois lookups
+- local subnet discovery
+- a small CLI for quick host checks
 
 ## CLI
 
-A standalone `netblame-cli` command is included for quick checks from the terminal:
+The repository also includes `netblame-cli`.
 
-```
+```text
 netblame-cli github.com
 
 DNS       ✔  140.82.121.3
@@ -44,24 +34,25 @@ SSL       ✔  valid  58 days remaining
 PING      ✔  11.0 ms  0% loss
 ```
 
-**Flags:**
+A few examples:
 
 ```bash
-netblame-cli -a github.com           # show all ports (open + closed)
-netblame-cli -p 22,80,443 github.com # check specific ports only
-netblame-cli -p 8000-8010 github.com # check a port range
+netblame-cli -a github.com
+netblame-cli -p 22,80,443 github.com
+netblame-cli -p 8000-8010 github.com
 ```
 
-Build and install the CLI:
+Build the CLI with:
 
 ```bash
-cargo build --bin netblame-cli --release
-sudo cp src-tauri/target/release/netblame-cli /usr/local/bin/
+cargo build --manifest-path src-tauri/Cargo.toml --bin netblame-cli --release
 ```
 
-## Build from source
+The binary will be in `src-tauri/target/release/`.
 
-Requirements: [Rust](https://rustup.rs), [Tauri CLI v2](https://tauri.app/start/create-project/)
+## Build the desktop app
+
+You need Rust and the Tauri v2 prerequisites for your distribution.
 
 ```bash
 git clone https://github.com/blamevlan/netblame.git
@@ -69,17 +60,24 @@ cd netblame
 cargo tauri build
 ```
 
-Packages are output to `src-tauri/target/release/bundle/`.
+Tauri writes the packages to:
+
+```text
+src-tauri/target/release/bundle/
+```
+
+If you already built an RPM, you can install it on Fedora with:
+
+```bash
+sudo dnf install ./src-tauri/target/release/bundle/rpm/netblame-*.x86_64.rpm
+```
 
 ## Notes
 
-- Ping and traceroute require raw socket permissions. If ping shows no results, run with `sudo` or set the capability:
-  ```bash
-  sudo setcap cap_net_raw+ep $(which ping)
-  ```
-- Network scan only works on local subnets (private IP ranges).
-- MAC address lookup only available for hosts on the same network segment.
+Ping and traceroute depend on the permissions available to the system tools they call. On systems where raw socket access is restricted, the relevant capability may need to be set explicitly.
+
+Network discovery is intended for local private subnets. MAC address information is only available for devices that are visible on the local network segment.
 
 ## License
 
-MIT
+MIT. See [LICENSE](LICENSE).
