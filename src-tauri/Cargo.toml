@@ -2,6 +2,9 @@
 name = "netblame"
 version = "0.1.0"
 edition = "2021"
+description = "Linux desktop and CLI tools for network troubleshooting"
+license = "MIT"
+repository = "https://github.com/blamevlan/netblame"
 
 [build-dependencies]
 tauri-build = { version = "2", features = [] }
